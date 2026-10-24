@@ -1,149 +1,145 @@
-# NF1 exon 23a splicing in public RNA-seq data
+# NF1 exon 31 (23a) splicing and its regulators in RNA-seq data
 
-R scripts that estimate the fraction of NF1 isoform II (exon 23a included) in public RNA-seq data. They provide an independent benchmark for ddPCR measurements of NF1 isoform I and II fractional abundance in peripheral blood mononuclear cells (PBMCs).
-
-A second set of scripts measures expression of candidate exon 23a splicing regulators (REST, CELF3–6 and ELAVL2–4) in GTEx blood and in NGN2-induced neurons.
+Scripts that estimate the fraction of *NF1* isoform II (exon 31 included) from RNA-seq junction reads, and measure expression of candidate exon 31 splicing regulators (*REST*, *CELF3–6* and *ELAVL2–4*). They provide independent benchmarks for ddPCR measurements of *NF1* isoform I and II fractional abundance.
 
 The analysis was written for a Master of Diagnostic Genomics thesis (Queensland University of Technology).
 
 ## Background
 
-NF1 exon 23a is a 63 bp alternative exon. It adds 21 amino acids to the GAP-related domain of neurofibromin. Transcripts that skip it encode isoform I. Transcripts that include it encode isoform II.
+*NF1* exon 31 (legacy exon 23a) is a 63 bp alternative exon at chr17:31,252,938–31,253,000 (GRCh38). It adds 21 amino acids to the GAP-related domain of neurofibromin. Transcripts that skip it encode isoform I, which has higher Ras-GAP activity. Transcripts that include it encode isoform II.
 
-Published estimates of the isoform balance in blood differ. Assunto et al. (2019) reported isoform II as the predominant form in blood. ddPCR in PBMCs for this thesis gave roughly 75% isoform I and 25% isoform II. These scripts use public RNA-seq junction counts as an independent check.
+CELF and ELAVL RNA-binding proteins promote exon 31 skipping, and REST represses their expression. These scripts ask where and when exon 31 is included, and whether that tracks the expression of these regulators.
 
 ## Method
 
-All three scripts follow the same approach.
+### Exon 31 PSI
 
-1. Download all exon-exon junction counts within NF1.
-2. Find every 63 bp cassette exon, defined by two inclusion junctions and one skipping junction.
-3. Select the candidate whose weakest junction has the most reads. A true alternative exon uses all three junctions. Ranking by total reads instead can select artefacts that borrow one busy constitutive junction.
-4. Check the selected exon against the expected exon 23a coordinates, chr17:31,252,938–31,253,000 (GRCh38).
-5. Calculate the isoform II fraction for each sample as `mean(left inclusion, right inclusion) / (mean(left inclusion, right inclusion) + skipping)`.
-6. Report per-sample estimates for samples with at least 20 informative reads. Also report a pooled, read-weighted estimate per group with a Wilson 95% confidence interval.
+All junction-based scripts use the same approach.
+
+1. Collect exon-exon junction counts within *NF1*.
+2. Identify exon 31 from its two inclusion junctions (exon 30–31 and exon 31–32) and its skipping junction (exon 30–32), and check it against the expected coordinates.
+3. Calculate percent spliced in (PSI), the isoform II fraction, for each sample:
+   `PSI = mean(left inclusion, right inclusion) / (mean(left inclusion, right inclusion) + skipping)`
+4. Report per-sample estimates for samples with at least `MIN_READS` informative reads (10 by default, 20 in the exploratory scripts).
+5. Report a pooled, read-weighted estimate per group with a Wilson 95% confidence interval.
+
+### Regulator expression
+
+Gene-level counts are converted to transcripts per million (TPM) using gene length, with TPM denominators calculated over all genes. Where a gene symbol maps to more than one gene ID, the ID with the most reads is kept. *NF1* is included as a reference gene.
 
 ## Scripts
 
-### `nf1_exon23a_gtex_snaptron.R` (main result)
+Run the R scripts in RStudio with `source(file.choose(), echo = TRUE)`, or click **Source**. Outputs are written to the R working directory (`getwd()`).
 
-Uses the Snaptron GTEx compilation. Compares whole blood with EBV-transformed lymphocytes. Tries the newer `gtexv2` compilation first and falls back to the original `gtex` compilation if snapcount fails to build the result.
+### Public data: blood
 
-Outputs `nf1_exon23a_gtex_samples.csv` and `nf1_exon23a_gtex_summary.csv`.
+| Script | Data | Output |
+|---|---|---|
+| `nf1_exon23a_gtex_snaptron.R` | GTEx whole blood and EBV-transformed lymphocytes, Snaptron junction counts (Wilks et al., 2018) | Exon 31 PSI per sample and pooled |
+| `nf1_regulators_gtex_recount3.R` | GTEx whole blood and EBV-transformed lymphocytes, recount3 gene counts (Wilks et al., 2021) | Regulator TPM per sample and per tissue |
+| `nf1_exon23a_pbmc_snaptron.R` | Snaptron SRA compilation, samples described as PBMCs (exploratory) | No healthy PBMC samples were found. Kept to document the search. |
+| `nf1_exon23a_monaco_recount3.R` | Monaco et al. (2019) sorted immune cells, GEO GSE107011 (exploratory) | Coverage at exon 31 was too low to use |
 
-### `nf1_exon23a_pbmc_snaptron.R` (exploratory)
+### Public data: early neuronal induction
 
-Searches the Snaptron SRA compilation for samples whose metadata mentions PBMCs. This did not find healthy PBMCs. The samples that passed the filter were K562 cells, in vitro polarised T helper cells, CD34+ cells undergoing erythroid differentiation and monocyte-derived macrophages. Their methods sections mentioned PBMC isolation. The script is kept to document this.
+| Script | Data | Output |
+|---|---|---|
+| `nf1_busskamp_recount3.R` | Busskamp et al. (2014), GEO GSE60548. PGP1 iPSCs induced with NGN1/2, Days 0, 1, 3 and 4, three replicates per day. recount3 junction and gene counts. | Exon 31 PSI and regulator TPM per sample and per day |
 
-### `nf1_exon23a_monaco_recount3.R` (exploratory)
+The script looks up the SRA project from GEO, checks that it is in recount3 and installs any missing packages. On the first run it writes `busskamp_sample_days.csv` with the day parsed from each sample label. Check it, correct it if needed and re-run.
 
-Uses recount3 junction counts for SRA project SRP125125. This project holds the Monaco et al. (2019) dataset of total PBMCs and 29 sorted immune cell types from healthy donors (GEO GSE107011). Coverage at exon 23a was too low to use. All 127 samples together gave only 79 informative reads.
+### Laboratory data: NGN2 neurons
 
-## Results
+These scripts run on nf-core/rnaseq output (Ewels et al., 2020). No sequencing data or sample names are included in this repository.
 
-| GTEx tissue | Samples | Samples with ≥20 reads | Isoform II fraction |
-|---|---|---|---|
-| Whole blood | 456 | 5 | 0.27 pooled (95% CI 0.25–0.30) |
-| EBV-transformed lymphocytes | 139 | 87 | 0.40 median (IQR 0.33–0.46), 0.41 pooled (95% CI 0.39–0.42) |
+| Script | Input | Output |
+|---|---|---|
+| `nf1_exon31_psi_ngn2.R` | STAR junction tables, `star_salmon/log/*.SJ.out.tab` | Exon 31 PSI per sample, per line and day, and pooled per day, with a plot |
+| `nf1_exon31_psi.py` | The same junction tables, or BAM files (Python alternative, needs `pysam` for BAM input) | Exon 31 PSI per sample and per day |
+| `nf1_regulators_neurons_nfcore.R` | Salmon gene TPM, `star_salmon/salmon.merged.gene_tpm.tsv` | Regulator TPM per sample, line and day |
 
-Isoform I was the predominant NF1 transcript in both tissues. The whole blood estimate is close to the ddPCR result in PBMCs. Neither tissue showed isoform II predominance.
+The line and day for each sample are parsed from file names of the form `LINE_D14` or `LINE_day14`. To set them explicitly, add a `sample_metadata.csv` with columns `sample`, `line` and `day` to the working directory. Libraries whose names contain `NTC` are skipped.
 
-### Limitations (exon 23a)
+### Figures
 
-- Most whole blood samples have low coverage at exon 23a, so the whole blood estimate relies on pooling.
-- Pooled confidence intervals treat reads as independent. They do not account for variation between donors and are likely to understate uncertainty.
-- EBV-transformed lymphocytes are activated B cells. They are not equivalent to resting PBMCs.
-- Junction counts come from the Rail-RNA aligner used by Snaptron. They are not directly comparable with ddPCR.
+| Script | Input | Output |
+|---|---|---|
+| `busskamp_regulators_figure.R` | `busskamp_nf1_samples.csv`, plus `nf1_regulators_gtex_summary.csv` and `nf1_regulators_neurons_summary.csv` if available | Heatmap of log₂(TPM + 1) across GTEx, Busskamp and NGN2 neurons, and a time course of each gene (600 dpi PNG) |
+| `nf1_regulators_figure.py` | GTEx and NGN2 summary CSVs | Two-panel heatmap and time course (Python version, 600 dpi PNG) |
 
-## Splicing regulator expression
+The figure script searches the working directory, then OneDrive and the home folder, for the optional summary files, and reports which it used. Blocks without data are left out.
 
-These scripts compare gene-level expression of candidate exon 23a regulators in blood and in neurons. NF1 is included as a reference gene.
+## Results from public data
 
-### `nf1_regulators_gtex_recount3.R`
+### Exon 31 PSI
 
-Uses recount3 gene counts for the GTEx BLOOD project. Keeps whole blood and EBV-transformed lymphocytes. Converts base-pair coverage to read counts with `transform_counts()`. Calculates TPM from all genes using gene length, then keeps the genes of interest. If a gene symbol maps to more than one gene ID, keeps the ID with the most reads.
+| Dataset | Samples | Isoform II (PSI) |
+|---|---|---|
+| GTEx whole blood | 456 | 0.27 pooled (95% CI 0.25–0.30) |
+| GTEx EBV-transformed lymphocytes | 139 | 0.41 pooled (95% CI 0.39–0.42) |
+| Busskamp et al. (2014), Day 0 | 3 | 0.59 pooled (95% CI 0.47–0.71) |
+| Busskamp et al. (2014), Day 1 | 3 | 0.51 pooled (95% CI 0.40–0.61) |
+| Busskamp et al. (2014), Day 3 | 3 | 0.24 pooled (95% CI 0.15–0.36) |
+| Busskamp et al. (2014), Day 4 | 3 | 0.19 pooled (95% CI 0.12–0.28) |
 
-Outputs `nf1_regulators_gtex_samples.csv`, `nf1_regulators_gtex_summary.csv` and, if ggplot2 is installed, `nf1_regulators_gtex.png`.
+Isoform I was the predominant *NF1* transcript in both blood tissues. During NGN1/2 induction, exon 31 inclusion fell by about two-thirds, mainly between Day 1 and Day 3.
 
-### `nf1_regulators_neurons_nfcore.R`
+### Regulator expression
 
-Reads `star_salmon/salmon.merged.gene_tpm.tsv` from nf-core/rnaseq output for NGN2 neuronal differentiation (days 7 to 35). Reads the cell line and day from `sample_metadata.csv` (columns `sample`, `line`, `day`) if present. Otherwise it parses the day from the sample name and takes the text before the day as the line.
+| Gene | EBV lymphocytes (median TPM) | Whole blood (median TPM) | Busskamp Day 0 (mean TPM) | Busskamp Day 4 (mean TPM) |
+|---|---|---|---|---|
+| *NF1* | 7.1 | 1.0 | 8.8 | 13 |
+| *REST* | 11.3 | 1.8 | 33 | 1.5 |
+| *CELF3* | <0.1 | <0.1 | 0.4 | 170 |
+| *CELF4* | <0.1 | <0.1 | 0.7 | 15 |
+| *CELF5* | <0.1 | <0.1 | 5.8 | 5.7 |
+| *CELF6* | 1.1 | 0.9 | <0.1 | 5.3 |
+| *ELAVL2* | <0.1 | <0.1 | 12 | 135 |
+| *ELAVL3* | 0.1 | <0.1 | 1.5 | 561 |
+| *ELAVL4* | <0.1 | <0.1 | 0.9 | 142 |
 
-Use the gene-level file. The transcript-level file (`salmon.merged.transcript_tpm.tsv`) has different columns and will be rejected.
+GTEx data: 196 EBV-transformed lymphocyte and 852 whole blood samples in recount3. *CELF3–5* and *ELAVL2–4* were effectively absent from blood. During NGN1/2 induction, *REST* fell and *CELF3*, *CELF4* and *ELAVL2–4* rose sharply, with *ELAVL3* already elevated by Day 1. Results from laboratory NGN2 neurons are reported in the thesis.
 
-Outputs `nf1_regulators_neurons_samples.csv`, `nf1_regulators_neurons_summary.csv` and, if ggplot2 is installed, `nf1_regulators_neurons.png`.
+## Limitations
 
-### `nf1_regulators_figure.py`
-
-Builds the combined figure from the two summary CSVs. Panel A is a heatmap of log2(TPM + 1). It shows GTEx median TPM beside the mean TPM across neuronal lines for each day. Panel B shows the neuronal time course for each gene (mean ± SD per line).
-
-```
-pip install matplotlib numpy
-python nf1_regulators_figure.py path/to/csv/folder
-```
-
-Writes `nf1_regulators_figure.png` at 600 dpi. Uses the Lato font if installed.
-
-![Splicing regulator expression](nf1_regulators_figure.png)
-
-### Regulator results
-
-| Gene | EBV lymphocytes (median TPM) | Whole blood (median TPM) | NGN2 neurons (mean TPM, days 7–35) |
-|---|---|---|---|
-| NF1 | 7.1 | 1.0 | 67–89 |
-| REST | 11.3 | 1.8 | 0.5–4.8 |
-| CELF3–5 | <0.1 | <0.1 | 61–210 |
-| CELF6 | 1.1 | 0.9 | 4–29 |
-| ELAVL2–4 | ≤0.1 | <0.1 | 231–504 |
-
-GTEx samples: 196 EBV-transformed lymphocytes and 852 whole blood. Neuronal data: two iPSC lines (PB001_1 and PB10_15), two replicates per time point.
-
-CELF3–5 and ELAVL2–4 were effectively absent from blood. All six were highly expressed in neurons from day 7. CELF6 rose steadily across differentiation. REST fell after day 7.
-
-### Limitations (regulators)
-
-- GTEx data were quantified with recount3 (GENCODE v26). Neuronal data were quantified with nf-core/rnaseq (Salmon, Ensembl 114). Compare patterns between datasets, not absolute TPM values.
+- Junction counts at exon 31 are low in many samples, especially whole blood and the Busskamp time course, so several estimates rely on pooling.
+- Pooled confidence intervals treat reads as independent. They do not account for variation between donors or replicates and are likely to understate uncertainty.
+- EBV-transformed lymphocytes are activated B cells and whole blood is dominated by granulocytes. Neither is equivalent to PBMCs.
+- GTEx and Busskamp data are poly(A)-selected and were quantified with recount3 (GRCh38, GENCODE v26). The NGN2 data are total RNA libraries quantified with nf-core/rnaseq (STAR and Salmon, Ensembl 114). Compare patterns between datasets, not absolute TPM values.
 - Gene-level TPM does not show which isoforms of each regulator are expressed.
-- Each neuronal time point has two replicates per line.
+- Expression changes in regulators and exon 31 inclusion are correlational. They do not establish a causal relationship.
 
 ## Requirements
 
-R with these Bioconductor packages:
+R (4.3 or later) with these packages. The newer scripts install anything missing on first run.
 
 ```r
 install.packages("BiocManager")
-BiocManager::install(c("snapcount", "SummarizedExperiment"))   # Snaptron scripts
-BiocManager::install("recount3")                                # Monaco and GTEx regulator scripts
-install.packages("ggplot2")                                     # optional plots
+BiocManager::install(c("snapcount", "recount3", "SummarizedExperiment"))
+install.packages(c("ggplot2", "ragg", "systemfonts"))
 ```
 
-Python 3 with matplotlib and numpy for `nf1_regulators_figure.py`.
+Python 3 with `matplotlib` and `numpy` for `nf1_regulators_figure.py`, and `pysam` only if running `nf1_exon31_psi.py` on BAM files.
 
-The scripts need internet access to the Snaptron and recount3 servers. Institutional networks may block these.
+The public-data scripts need internet access to NCBI GEO and the Snaptron and recount3 servers. Institutional networks may block these.
 
-## Usage
+## Data privacy
 
-Run each script as a whole file so that it stops at the first error.
-
-```r
-source("nf1_exon23a_gtex_snaptron.R", echo = TRUE)
-```
-
-Output CSVs are written to the R working directory. The Monaco script downloads a large junction file and may need several GB of memory.
+This repository contains code only. Sequencing files, sample sheets and analysis outputs are excluded by `.gitignore`. Keep laboratory data out of commits.
 
 ## References
 
-Assunto, A., Ferrara, U., De Luca, A., Pivonello, C., Lombardo, L., Piscitelli, A., Tortora, C., Pinna, V., Daniele, P., Pivonello, R., Russo, M. G., Limongelli, G., Colao, A., Tartaglia, M., Strisciuglio, P., & Melis, D. (2019). Isoform-specific NF1 mRNA levels correlate with disease severity in Neurofibromatosis type 1. Orphanet Journal of Rare Diseases, 14(1), 261. https://doi.org/10.1186/s13023-019-1223-1
-
-GTEx Consortium. (2017). Genetic effects on gene expression across human tissues. *Nature, 550*(7675), 204–213. https://doi.org/10.1038/nature24277
-
-Monaco, G., Lee, B., Xu, W., Mustafah, S., Hwang, Y. Y., Carré, C., Burdin, N., Visan, L., Ceccarelli, M., Poidinger, M., Zippelius, A., Pedro De Magalhães, J., & Larbi, A. (2019). RNA-Seq Signatures Normalized by mRNA Abundance Allow Absolute Deconvolution of Human Immune Cell Types. Cell Reports, 26(6), 1627-1640.e7. https://doi.org/10.1016/j.celrep.2019.01.041
+Busskamp, V., Lewis, N. E., Guye, P., Ng, A. H. M., Shipman, S. L., Byrne, S. M., Sanjana, N. E., Murn, J., Li, Y., Li, S., Stadler, M., Weiss, R., & Church, G. M. (2014). Rapid neurogenesis through transcriptional activation in human stem cells. *Molecular Systems Biology, 10*(11), 760. https://doi.org/10.15252/msb.20145508
 
 Ewels, P. A., Peltzer, A., Fillinger, S., Patel, H., Alneberg, J., Wilm, A., Garcia, M. U., Di Tommaso, P., & Nahnsen, S. (2020). The nf-core framework for community-curated bioinformatics pipelines. *Nature Biotechnology, 38*(3), 276–278. https://doi.org/10.1038/s41587-020-0439-x
 
-Wilks, C., Zheng, S. C., Chen, F. Y., Charles, R., Solomon, B., Ling, J. P., Imada, E. L., Zhang, D., Joseph, L., Leek, J. T., Jaffe, A. E., Nellore, A., Collado-Torres, L., Hansen, K. D., & Langmead, B. (2021). recount3: Summaries and queries for large-scale RNA-seq expression and splicing. *Genome Biology, 22*(1), 323. https://doi.org/10.1186/s13059-021-02533-6
+GTEx Consortium. (2017). Genetic effects on gene expression across human tissues. *Nature, 550*(7675), 204–213. https://doi.org/10.1038/nature24277
+
+Monaco, G., Lee, B., Xu, W., Mustafah, S., Hwang, Y. Y., Carré, C., Burdin, N., Visan, L., Ceccarelli, M., Poidinger, M., Zippelius, A., Pedro de Magalhães, J., & Larbi, A. (2019). RNA-seq signatures normalized by mRNA abundance allow absolute deconvolution of human immune cell types. *Cell Reports, 26*(6), 1627–1640.e7. https://doi.org/10.1016/j.celrep.2019.01.041
 
 Wilks, C., Gaddipati, P., Nellore, A., & Langmead, B. (2018). Snaptron: Querying splicing patterns across tens of thousands of RNA-seq samples. *Bioinformatics, 34*(1), 114–116. https://doi.org/10.1093/bioinformatics/btx547
+
+Wilks, C., Zheng, S. C., Chen, F. Y., Charles, R., Solomon, B., Ling, J. P., Imada, E. L., Zhang, D., Joseph, L., Leek, J. T., Jaffe, A. E., Nellore, A., Collado-Torres, L., Hansen, K. D., & Langmead, B. (2021). recount3: Summaries and queries for large-scale RNA-seq expression and splicing. *Genome Biology, 22*(1), 323. https://doi.org/10.1186/s13059-021-02533-6
 
 ## Author
 

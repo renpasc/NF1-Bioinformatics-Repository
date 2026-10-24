@@ -15,7 +15,7 @@ suppressPackageStartupMessages({
 
 EXPECT_EXON <- c(31252938, 31253000)   # exon 23a (hg38), found in the SRA run
 EXON_LEN    <- 63
-MIN_READS   <- 20
+MIN_READS   <- 10   # matches the thesis (Section 2.8)
 TISSUES     <- c("Whole Blood", "Cells - EBV-transformed lymphocytes")
 
 # 1. Query GTEx (separate object name so the earlier SRA `jx` isn't reused) -----------
